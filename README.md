@@ -20,11 +20,19 @@ nInvaders is known to compile and run on Solaris, Linux and OpenBSD. On all of
 them were ncurses 5.2 installed. If you are capable of running it on other
 platforms, tell me!
 
+In Debian distro you can intall it by running:
+
+```bash
+apt install libncurses-dev
+```
+
 3. CONTROL KEYS
 ---------------
 Controlling nInvaders is really simple. Just press the cursor left/right keys 
 to move it left or right, and press space to fire. The esc-key lets you quit 
 at any time you want.
+
+This support a joystick, by default it uses the `/dev/input/js0`
 
 4. COMMAND LINE OPTIONS
 -----------------------
