@@ -21,10 +21,12 @@
  *
  */
 
-
+#include <linux/joystick.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <time.h>
 #include "nInvaders.h"
 #include "player.h"
 #include "aliens.h"
@@ -32,9 +34,13 @@
 
 #define FPS 50
 
+int weite;
+int level;
+int skill_level;
 int lives;
 long score;
 int status; // status handled in timer
+int resend;
 
 #define GAME_LOOP 1
 #define GAME_NEXTLEVEL 2
@@ -43,8 +49,58 @@ int status; // status handled in timer
 #define GAME_EXIT 5
 #define GAME_HIGHSCORE 6
 
+int td()
+{
+	static struct timespec t0;
+	struct timespec t1;
+	double dt;
 
+	clock_gettime(CLOCK_MONOTONIC, &t1);
+	dt = t1.tv_nsec - t0.tv_nsec;
+	t0 = t1;
 
+	return dt > 500000;
+}
+
+int getjs()
+{
+	static int fd = -1;
+	struct js_event js;
+
+	if (fd == -1) {
+		fd = open("/dev/input/js0", O_RDONLY | O_NONBLOCK);
+		if (fd <0)
+			return -1;
+	}
+
+	read(fd, &js, sizeof(struct js_event));
+
+	switch (js.type & ~JS_EVENT_INIT) {
+		case JS_EVENT_AXIS:
+			if (js.number == 0 && js.value < 0) {
+				resend |= 1 << 0;
+				return KEY_LEFT;
+			} else if (js.number == 0 && js.value > 0) {
+				resend |= 1 << 1;
+				return KEY_RIGHT;
+			} else if (js.number == 0 && js.value == 0) {
+				resend &= ~0x3;
+			}
+			break;
+		case JS_EVENT_BUTTON:
+			if (js.number == 2 && js.value == 1) {
+				resend |= 1 << 2;
+				return ' ';
+			} else if (js.number == 2 && js.value == 0) {
+				resend &= ~0x4;
+			} else if (js.number == 5 && js.value == 1) {
+				return 'p';
+			}
+			break;
+	}
+
+	return EOF;
+}
 
 /**
  * initialize level: reset attributes of most units
@@ -137,6 +193,8 @@ void readInput()
 	static int lastmove;
 
 	ch = getch();		// get key pressed
+	if (ch == EOF)
+		ch = getjs();
 
 	switch (status) {
 
@@ -273,7 +331,16 @@ void handleTimer()
 		if (player_shot_counter++ >= 1) {player_shot_counter=0;}     // speed of player shot
 		if (aliens_move_counter++ >= weite) {aliens_move_counter=0;} // speed of aliend
 		if (ufo_move_counter++ >= 3) {ufo_move_counter=0;}           // speed of ufo
-		
+
+		if (td()) {
+			if (resend & (1<<0))
+				playerMoveLeft();
+			else if (resend & (1 << 1))
+				playerMoveRight();
+			if(resend & (1 << 2))
+				playerLaunchMissile();
+		}
+
 		refreshScreen();
 		break;
 		
@@ -336,7 +403,9 @@ int main(int argc, char **argv)
 
 	evaluateCommandLine(argc, argv);	// evaluate command line parameters
 	graphicEngineInit();			// initialize graphic engine
-	
+
+	nodelay(stdscr, TRUE);
+
 	// set up timer/ game handling
 	setUpTimer();		
 	status = GAME_HIGHSCORE;

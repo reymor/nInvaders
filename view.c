@@ -50,6 +50,8 @@ WINDOW *wUfo;
 WINDOW *wStatus;
 WINDOW *wTitleScreen;
 
+int bunker[BUNKERHEIGHT][BUNKERWIDTH + 1];
+
 /**
  * initialize player sprites
  */
